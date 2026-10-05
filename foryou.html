@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>A question for you</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=DM+Sans:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  --bg:#2a1233; --ink:#fff3e6; --pink:#ff5d8f; --sun:#ffc857; --soft:#4a2357;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:inherit}
+html,body{height:100%;margin:0}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  background:radial-gradient(circle at 50% 30%,#4a2357 0%,var(--bg) 70%);
+  color:var(--ink); font-family:"DM Sans",system-ui,sans-serif;
+  display:flex; align-items:center; justify-content:center; text-align:center;
+  overflow:hidden;
+}
+main{padding:24px; max-width:560px; width:100%}
+.emoji{font-size:64px; display:block; margin-bottom:8px}
+h1{
+  font-family:"Bagel Fat One","Trebuchet MS",system-ui,sans-serif; font-weight:400;
+  font-size:clamp(34px,8vw,56px); line-height:1.1; margin:0 0 12px;
+}
+p{margin:0 0 32px; font-size:18px; color:#e9d3ea}
+.row{display:flex; gap:16px; justify-content:center; align-items:center; min-height:90px}
+button{
+  font:700 18px "DM Sans",system-ui,sans-serif; border:0; border-radius:999px;
+  padding:14px 30px; cursor:pointer; color:#2a1233;
+}
+button:focus-visible{outline:3px solid var(--sun); outline-offset:3px}
+#yes{background:var(--pink); color:#fff; transition:transform .2s}
+#yes:hover{transform:scale(1.06)}
+#no{background:var(--soft); color:var(--ink); transition:left .25s ease,top .25s ease,transform .25s ease}
+#no.free{position:fixed; z-index:5}
+#taunt{min-height:24px; margin-top:20px; font-size:15px; color:var(--sun)}
+#done{display:none}
+#done.show{display:block}
+#ask.hide{display:none}
+canvas{position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:10}
+@media (prefers-reduced-motion:reduce){#no{transition:none}}
+</style>
+</head>
+<body>
+<main>
+  <section id="ask">
+    <span class="emoji" aria-hidden="true">💌</span>
+    <h1 id="q">Will you go out with me?</h1>
+    <p id="sub">I made you a whole webpage. Please say yes.</p>
+    <div class="row">
+      <button id="yes">Yes</button>
+      <button id="no">No</button>
+    </div>
+    <div id="taunt" aria-live="polite"></div>
+  </section>
+  <section id="done">
+    <span class="emoji" aria-hidden="true">🎉</span>
+    <h1>Yay! It's a date.</h1>
+    <p id="doneMsg">Screenshot this and send it to me so it's official.</p>
+  </section>
+</main>
+<canvas id="fx"></canvas>
+
+<script>
+// Personalise: add ?to=Her+Name&from=Your+Name to the link, or edit the defaults here.
+var params = new URLSearchParams(location.search);
+var TO = params.get('to') || '';
+var FROM = params.get('from') || '';
+if (TO) document.getElementById('q').textContent = TO + ', will you go out with me?';
+if (FROM) document.getElementById('doneMsg').textContent = 'Screenshot this and send it to ' + FROM + ' so it\u2019s official.';
+
+var yes = document.getElementById('yes');
+var no = document.getElementById('no');
+var taunt = document.getElementById('taunt');
+var taunts = ['Nice try.','Too slow!','Are you sure?','The button disagrees.','Hint: it\u2019s the other one.','Getting smaller, huh?','Just press Yes :)','Almost had it.'];
+var tries = 0, scale = 1, yesScale = 1;
+
+function dodge(e){
+  if (e && e.cancelable) e.preventDefault();
+  tries++;
+  scale = Math.max(0.35, scale - 0.08);
+  yesScale = Math.min(2.2, yesScale + 0.1);
+  yes.style.transform = 'scale(' + yesScale + ')';
+  if (!no.classList.contains('free')) no.classList.add('free');
+  var w = no.offsetWidth, h = no.offsetHeight, pad = 12;
+  var maxX = window.innerWidth - w - pad, maxY = window.innerHeight - h - pad;
+  no.style.left = (pad + Math.random() * Math.max(0, maxX - pad)) + 'px';
+  no.style.top = (pad + Math.random() * Math.max(0, maxY - pad)) + 'px';
+  no.style.transform = 'scale(' + scale + ')';
+  taunt.textContent = taunts[(tries - 1) % taunts.length];
+}
+['pointerenter','pointerdown','touchstart','focus'].forEach(function(ev){ no.addEventListener(ev, dodge, {passive:false}); });
+no.addEventListener('click', dodge);
+
+// Confetti
+var cv = document.getElementById('fx'), ctx = cv.getContext('2d'), bits = [], raf;
+function size(){ cv.width = innerWidth * devicePixelRatio; cv.height = innerHeight * devicePixelRatio; }
+size(); addEventListener('resize', size);
+function burst(){
+  var colors = ['#ff5d8f','#ffc857','#fff3e6','#8fd3ff','#b794f6'];
+  var n = matchMedia('(prefers-reduced-motion:reduce)').matches ? 40 : 180;
+  for (var i = 0; i < n; i++) {
+    bits.push({x: innerWidth/2, y: innerHeight*0.55, vx:(Math.random()-0.5)*16, vy:-Math.random()*16-4,
+      s: 6+Math.random()*7, r: Math.random()*6, vr:(Math.random()-0.5)*0.4, c: colors[i % colors.length], life: 140+Math.random()*60});
+  }
+  if (!raf) tick();
+}
+function tick(){
+  ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+  ctx.clearRect(0,0,innerWidth,innerHeight);
+  bits = bits.filter(function(b){ return b.life > 0 && b.y < innerHeight + 40; });
+  bits.forEach(function(b){
+    b.vy += 0.35; b.vx *= 0.99; b.x += b.vx; b.y += b.vy; b.r += b.vr; b.life--;
+    ctx.save(); ctx.translate(b.x,b.y); ctx.rotate(b.r); ctx.fillStyle = b.c;
+    ctx.fillRect(-b.s/2,-b.s/4,b.s,b.s/2); ctx.restore();
+  });
+  raf = bits.length ? requestAnimationFrame(tick) : 0;
+}
+
+yes.addEventListener('click', function(){
+  document.getElementById('ask').classList.add('hide');
+  document.getElementById('done').classList.add('show');
+  no.style.display = 'none';
+  burst(); setTimeout(burst, 400); setTimeout(burst, 900);
+});
+</script>
+</body>
+</html>
